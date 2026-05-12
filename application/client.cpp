@@ -99,6 +99,20 @@ void sendHeartbeat() {
         return;
     }
 
+    sockaddr_in localAddress{};
+    localAddress.sin_family = AF_INET;
+    localAddress.sin_addr.s_addr = INADDR_ANY;
+    localAddress.sin_port = 0;
+
+    if (bind(udpSocket,
+             (sockaddr*)&localAddress,
+             sizeof(localAddress)) < 0) {
+
+        cerr << "[ERROR] Failed to bind UDP socket.\n";
+        close(udpSocket);
+        return;
+    }
+
     while (isRunning) {
 
         string heartbeatMessage =
@@ -115,6 +129,36 @@ void sendHeartbeat() {
         if (sentBytes < 0) {
 
             cerr << "[ERROR] Failed to send heartbeat.\n";
+        }
+
+        char recvBuffer[BUFFER_SIZE];
+        sockaddr_in fromAddr{};
+        socklen_t fromLen = sizeof(fromAddr);
+
+        int recvBytes =
+            recvfrom(udpSocket,
+                     recvBuffer,
+                     BUFFER_SIZE - 1,
+                     MSG_DONTWAIT,
+                     (sockaddr*)&fromAddr,
+                     &fromLen);
+
+        if (recvBytes > 0) {
+
+            string message(recvBuffer, recvBytes);
+            stringstream ss(message);
+            string packetType;
+            getline(ss, packetType, '|');
+
+            if (packetType == "BROADCAST") {
+
+                string announcement;
+                getline(ss, announcement);
+
+                cout << "\n========== SYSTEM BROADCAST ==========" << endl;
+                cout << announcement << endl;
+                cout << "======================================\n";
+            }
         }
 
         sleep(HEARTBEAT_INTERVAL);
